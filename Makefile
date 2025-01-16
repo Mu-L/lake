@@ -17,37 +17,13 @@
 # https://stackoverflow.com/questions/920413/make-error-missing-separator
 # https://tutorialedge.net/golang/makefiles-for-go-developers/
 
-SHA = $(shell git show -s --format=%h)
-TAG ?= $(shell git tag --points-at HEAD)
+SHA ?= $(shell git show -s --format=%h 2>/dev/null || echo "default_SHA")
+TAG ?= $(shell git tag --points-at HEAD 2>/dev/null || echo "default_TAG")
 IMAGE_REPO ?= "apache"
 VERSION = $(TAG)@$(SHA)
 
-dep:
-	go install github.com/vektra/mockery/v2@latest
-	go install github.com/swaggo/swag/cmd/swag@v1.8.4
-
-swag:
-	swag init --parseDependency --parseInternal -o ./api/docs -g ./api/api.go -g plugins/*/api/*.go
-	@echo "visit the swagger document on http://localhost:8080/swagger/index.html"
-
-build-plugin:
-	@sh scripts/compile-plugins.sh
-
-build-plugin-debug:
-	@sh scripts/compile-plugins.sh -gcflags='all=-N -l'
-
-build-worker:
-	go build -ldflags "-X 'github.com/apache/incubator-devlake/version.Version=$(VERSION)'" -o bin/lake-worker ./worker/
-
-build-server: swag
-	go build -ldflags "-X 'github.com/apache/incubator-devlake/version.Version=$(VERSION)'" -o bin/lake
-
-build: build-plugin build-server
-
-all: build build-worker
-
 build-server-image:
-	docker build -t $(IMAGE_REPO)/devlake:$(TAG) --file ./Dockerfile .
+	make build-server-image -C backend
 
 build-config-ui-image:
 	cd config-ui; docker build -t $(IMAGE_REPO)/devlake-config-ui:$(TAG) --file ./Dockerfile .
@@ -57,7 +33,6 @@ build-grafana-image:
 
 build-images: build-server-image build-config-ui-image build-grafana-image
 
-
 push-server-image: build-server-image
 	docker push $(IMAGE_REPO)/devlake:$(TAG)
 
@@ -65,58 +40,86 @@ push-config-ui-image: build-config-ui-image
 	docker push $(IMAGE_REPO)/devlake-config-ui:$(TAG)
 
 push-grafana-image: build-grafana-image
-        docker push $(IMAGE_REPO)/devlake-dashboard:$(TAG)
+	docker push $(IMAGE_REPO)/devlake-dashboard:$(TAG)
 
 push-images: push-server-image push-config-ui-image push-grafana-image
-
-run:
-	go run main.go
-
-worker:
-	go run worker/*.go
-
-dev: build-plugin run
-
-debug: build-plugin-debug
-	dlv debug main.go
 
 configure:
 	docker-compose up config-ui
 
 configure-dev:
-	cd config-ui; npm install; npm start;
+	cd config-ui; yarn; yarn start
 
 commit:
 	git cz
 
+restart:
+	docker-compose down; docker-compose up -d
+
+# Actually execute in ./backend
+go-dep:
+	make go-dep -C backend
+
+python-dep:
+	make python-dep -C backend
+
+dep: go-dep python-dep
+
+swag:
+	make swag -C backend
+
+build-plugin:
+	make build-plugin -C backend
+
+build-server:
+	make build-server -C backend
+
+build: build-plugin build-server
+
+all: build
+
+tap-models:
+	make tap-models -C backend
+
+run:
+	make run -C backend
+
+dev:
+	make dev -C backend
+
+godev:
+	make godev -C backend
+
+debug:
+	make debug -C backend
+
 mock:
-	rm -rf mocks
-	mockery --dir=./plugins/core --unroll-variadic=false --name='.*'
-	mockery --dir=./plugins/core/dal --unroll-variadic=false --name='.*'
-	mockery --dir=./plugins/helper --unroll-variadic=false --name='.*'
+	make mock -C backend
 
 test: unit-test e2e-test
 
-unit-test: mock build
-	set -e; for m in $$(go list ./... | egrep -v 'test|models|e2e'); do echo $$m; go test -timeout 60s -v $$m; done
+unit-test: mock unit-test-only
 
-e2e-test: build
-	PLUGIN_DIR=$(shell readlink -f bin/plugins) go test -timeout 300s -v ./test/...
+unit-test-only:
+	make unit-test -C backend
 
-e2e-plugins:
-	export ENV_PATH=$(shell readlink -f .env); set -e; for m in $$(go list ./plugins/... | egrep 'e2e'); do echo $$m; go test -timeout 300s -gcflags=all=-l -v $$m; done
+python-unit-test:
+	make python-unit-test -C backend
 
-real-e2e-test:
-	PLUGIN_DIR=$(shell readlink -f bin/plugins) go test -v ./e2e/...
+e2e-test:
+	make e2e-test -C backend
+
+e2e-plugins-test:
+	make e2e-plugins-test -C backend
+
+integration-test:
+	make integration-test -C backend
 
 lint:
-	golangci-lint run
+	make lint -C backend
 
 fmt:
-	find . -name \*.go | xargs gofmt -s -w -l
+	make fmt -C backend
 
 clean:
-	@rm -rf bin
-
-restart:
-	docker-compose down; docker-compose up -d
+	make clean -C backend

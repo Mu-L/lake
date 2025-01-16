@@ -3,7 +3,10 @@
     "list": [
       {
         "builtIn": 1,
-        "datasource": "-- Grafana --",
+        "datasource": {
+          "type": "datasource",
+          "uid": "grafana"
+        },
         "enable": true,
         "hide": true,
         "iconColor": "rgba(0, 211, 255, 1)",
@@ -13,14 +16,17 @@
     ]
   },
   "editable": true,
-  "gnetId": null,
+  "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 7,
-  "iteration": 1660821779393,
+  "id": 30,
   "links": [],
+  "liveNow": false,
   "panels": [
     {
-      "datasource": null,
+      "datasource": {
+        "type": "datasource",
+        "uid": "grafana"
+      },
       "gridPos": {
         "h": 3,
         "w": 24,
@@ -28,13 +34,29 @@
         "y": 0
       },
       "id": 58,
+      "links": [
+        {
+          "targetBlank": true,
+          "title": "Jenkins",
+          "url": "https://devlake.apache.org/docs/Plugins/jenkins"
+        }
+      ],
       "options": {
-        "content": "- Use Cases: This dashboard shows the basic CI/CD metrics from Jenkins.\n- Data Source Required: Jenkins",
+        "code": {
+          "language": "plaintext",
+          "showLineNumbers": false,
+          "showMiniMap": false
+        },
+        "content": "- Use Cases: This dashboard shows the basic CI/CD metrics from Jenkins, such as [Build Count](https://devlake.apache.org/docs/Metrics/BuildCount), [Build Duration](https://devlake.apache.org/docs/Metrics/BuildDuration) and [Build Success Rate](https://devlake.apache.org/docs/Metrics/BuildSuccessRate).\n- Data Source Required: Jenkins",
         "mode": "markdown"
       },
-      "pluginVersion": "8.0.6",
+      "pluginVersion": "9.5.15",
       "targets": [
         {
+          "datasource": {
+            "type": "datasource",
+            "uid": "grafana"
+          },
           "queryType": "randomWalk",
           "refId": "A"
         }
@@ -67,6 +89,13 @@
         "y": 3
       },
       "id": 4,
+      "links": [
+        {
+          "targetBlank": true,
+          "title": "Build Count",
+          "url": "https://devlake.apache.org/docs/Metrics/BuildCount"
+        }
+      ],
       "options": {
         "colorMode": "value",
         "graphMode": "area",
@@ -82,14 +111,16 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.0.6",
+      "pluginVersion": "9.5.15",
       "targets": [
         {
-          "format": "time_series",
+          "datasource": "mysql",
+          "editorMode": "code",
+          "format": "table",
           "group": [],
           "metricColumn": "none",
           "rawQuery": true,
-          "rawSql": "SELECT\n  now() AS time,\n  count(*)\nFROM \n  builds b\n  join jobs j on b.job_id = j.id \nWHERE\n  $__timeFilter(b.started_date)\n  and j.id in ($job_id)\nORDER BY 1",
+          "rawSql": "SELECT\n  count(distinct id)\nFROM \n  cicd_pipelines\nWHERE\n  $__timeFilter(finished_date)\n  and result = 'SUCCESS'\n  and id like \"%jenkins%\"\n  and cicd_scope_id in (${job_id})\n  -- the following condition will remove the month with incomplete data\n  and finished_date >= DATE_ADD(DATE_ADD($__timeFrom(), INTERVAL -DAY($__timeFrom())+1 DAY), INTERVAL +1 MONTH)",
           "refId": "A",
           "select": [
             [
@@ -101,6 +132,23 @@
               }
             ]
           ],
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          },
           "table": "gitlab_commits",
           "timeColumn": "created_at",
           "timeColumnType": "timestamp",
@@ -113,9 +161,7 @@
           ]
         }
       ],
-      "timeFrom": null,
-      "timeShift": null,
-      "title": "1. Total Number of Builds [Selected Time Range]",
+      "title": "1. Total Number of Successful Builds [Selected Time Range]",
       "type": "stat"
     },
     {
@@ -146,6 +192,13 @@
         "y": 3
       },
       "id": 6,
+      "links": [
+        {
+          "targetBlank": true,
+          "title": "Build Success Rate",
+          "url": "https://devlake.apache.org/docs/Metrics/BuildSuccessRate"
+        }
+      ],
       "options": {
         "colorMode": "value",
         "graphMode": "area",
@@ -161,14 +214,16 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.0.6",
+      "pluginVersion": "9.5.15",
       "targets": [
         {
-          "format": "time_series",
+          "datasource": "mysql",
+          "editorMode": "code",
+          "format": "table",
           "group": [],
           "metricColumn": "none",
           "rawQuery": true,
-          "rawSql": "SELECT\n  now() AS time,\n  1.0 * count(case when b.status = 'SUCCESS' then 1 else null end)/count(*)\nFROM builds b\n  join jobs j on b.job_id = j.id \nWHERE\n  $__timeFilter(b.started_date)\n  and j.id in ($job_id)\nORDER BY 1",
+          "rawSql": "SELECT\n  1.0 * count(case when result = 'SUCCESS' then id else null end)/count(distinct id)\nFROM cicd_pipelines\nWHERE\n  $__timeFilter(finished_date)\n  and id like \"%jenkins%\"\n  and cicd_scope_id in (${job_id})\n  -- the following condition will remove the month with incomplete data\n  and finished_date >= DATE_ADD(DATE_ADD($__timeFrom(), INTERVAL -DAY($__timeFrom())+1 DAY), INTERVAL +1 MONTH)",
           "refId": "A",
           "select": [
             [
@@ -180,6 +235,23 @@
               }
             ]
           ],
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          },
           "table": "gitlab_commits",
           "timeColumn": "created_at",
           "timeColumnType": "timestamp",
@@ -192,15 +264,12 @@
           ]
         }
       ],
-      "timeFrom": null,
-      "timeShift": null,
       "title": "2. Mean Build Success Rate",
       "type": "stat"
     },
     {
-      "cacheTimeout": null,
       "datasource": "mysql",
-      "description": "The percentage of successful, failed, and aborted builds.",
+      "description": "",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -225,7 +294,8 @@
               "options": {
                 "mode": "exclude",
                 "names": [
-                  "build_count"
+                  "build_count",
+                  "ABORT"
                 ],
                 "prefix": "All except:",
                 "readOnly": true
@@ -241,6 +311,51 @@
                 }
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "SUCCESS"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "green",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "FAILURE"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "red",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "ABORT"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "rgba(205, 204, 206, 1)",
+                  "mode": "fixed"
+                }
+              }
+            ]
           }
         ]
       },
@@ -251,8 +366,13 @@
         "y": 3
       },
       "id": 37,
-      "interval": null,
-      "links": [],
+      "links": [
+        {
+          "targetBlank": true,
+          "title": "Build Count",
+          "url": "https://devlake.apache.org/docs/Metrics/BuildCount"
+        }
+      ],
       "options": {
         "displayLabels": [
           "value",
@@ -262,6 +382,7 @@
           "calcs": [],
           "displayMode": "table",
           "placement": "right",
+          "showLegend": true,
           "values": [
             "percent",
             "value"
@@ -276,17 +397,20 @@
           "values": true
         },
         "tooltip": {
-          "mode": "single"
+          "mode": "single",
+          "sort": "none"
         }
       },
       "pluginVersion": "8.0.6",
       "targets": [
         {
+          "datasource": "mysql",
+          "editorMode": "code",
           "format": "table",
           "group": [],
           "metricColumn": "none",
           "rawQuery": true,
-          "rawSql": "SELECT\n  now() AS time,\n  status,\n  count(*) as build_count\nFROM builds b\n  join jobs j on b.job_id = j.id \nWHERE\n  $__timeFilter(b.started_date)\n  and j.id in ($job_id)\nGROUP BY 1,2\nORDER BY 1",
+          "rawSql": "SELECT\n  result,\n  count(distinct id) as build_count\nFROM cicd_pipelines\nWHERE\n  $__timeFilter(finished_date)\n  and id like \"%jenkins%\"\n  and cicd_scope_id in (${job_id})\n  -- the following condition will remove the month with incomplete data\n  and finished_date >= DATE_ADD(DATE_ADD($__timeFrom(), INTERVAL -DAY($__timeFrom())+1 DAY), INTERVAL +1 MONTH)\nGROUP BY 1\nORDER BY 2 desc",
           "refId": "A",
           "select": [
             [
@@ -298,6 +422,23 @@
               }
             ]
           ],
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          },
           "table": "gitlab_commits",
           "timeColumn": "created_at",
           "timeColumnType": "timestamp",
@@ -310,8 +451,6 @@
           ]
         }
       ],
-      "timeFrom": null,
-      "timeShift": null,
       "title": "3. Total Build Result Distribution",
       "type": "piechart"
     },
@@ -343,6 +482,13 @@
         "y": 3
       },
       "id": 55,
+      "links": [
+        {
+          "targetBlank": true,
+          "title": "Build Duration",
+          "url": "https://devlake.apache.org/docs/Metrics/BuildDuration"
+        }
+      ],
       "options": {
         "colorMode": "value",
         "graphMode": "area",
@@ -356,14 +502,15 @@
         "text": {},
         "textMode": "auto"
       },
-      "pluginVersion": "8.0.6",
+      "pluginVersion": "9.5.15",
       "targets": [
         {
-          "format": "time_series",
+          "datasource": "mysql",
+          "format": "table",
           "group": [],
           "metricColumn": "none",
           "rawQuery": true,
-          "rawSql": "SELECT\n  now() AS time,\n  avg(duration_sec/60) as duration_in_minute\nFROM builds b\n  join jobs j on b.job_id = j.id \nWHERE\n  $__timeFilter(b.started_date)\n  and j.id in ($job_id)\nORDER BY 1",
+          "rawSql": "SELECT\n  avg(duration_sec/60) as duration_in_minutes\nFROM cicd_pipelines\nWHERE\n  $__timeFilter(finished_date)\n  and id like \"%jenkins%\"\n  and cicd_scope_id in (${job_id})\n  -- the following condition will remove the month with incomplete data\n  and finished_date >= DATE_ADD(DATE_ADD($__timeFrom(), INTERVAL -DAY($__timeFrom())+1 DAY), INTERVAL +1 MONTH)",
           "refId": "A",
           "select": [
             [
@@ -387,8 +534,6 @@
           ]
         }
       ],
-      "timeFrom": null,
-      "timeShift": null,
       "title": "4. Mean Build Duration in Minutes",
       "type": "stat"
     },
@@ -401,6 +546,8 @@
             "mode": "palette-classic"
           },
           "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
             "axisLabel": "Build Count",
             "axisPlacement": "auto",
             "axisSoftMin": 0,
@@ -411,7 +558,13 @@
               "tooltip": false,
               "viz": false
             },
-            "lineWidth": 1
+            "lineWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
           },
           "mappings": [],
           "thresholds": {
@@ -437,32 +590,48 @@
         "y": 9
       },
       "id": 52,
+      "links": [
+        {
+          "targetBlank": true,
+          "title": "Build Count",
+          "url": "https://devlake.apache.org/docs/Metrics/BuildCount"
+        }
+      ],
       "options": {
+        "barRadius": 0,
         "barWidth": 0.5,
+        "fullHighlight": false,
         "groupWidth": 0.7,
         "legend": {
           "calcs": [],
           "displayMode": "list",
-          "placement": "bottom"
+          "placement": "bottom",
+          "showLegend": true
         },
         "orientation": "auto",
         "showValue": "auto",
+        "stacking": "none",
         "text": {
           "valueSize": 12
         },
         "tooltip": {
-          "mode": "single"
-        }
+          "mode": "single",
+          "sort": "none"
+        },
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
       },
       "pluginVersion": "8.0.6",
       "targets": [
         {
+          "datasource": "mysql",
+          "editorMode": "code",
           "format": "table",
           "group": [],
           "hide": false,
           "metricColumn": "none",
           "rawQuery": true,
-          "rawSql": "with _builds as(\n  SELECT\n    DATE_ADD(date(b.started_date), INTERVAL -DAYOFMONTH(date(b.started_date))+1 DAY) as time,\n    count(*) as build_count\n  FROM builds b\n  join jobs j on b.job_id = j.id \nWHERE\n  $__timeFilter(b.started_date)\n  and j.id in ($job_id)\n  group by 1\n)\n\nSELECT \n  date_format(time,'%M %Y') as month,\n  build_count as \"Build Count\"\nFROM _builds\nORDER BY time\n",
+          "rawSql": "WITH _builds as(\n  SELECT\n    DATE_ADD(date(finished_date), INTERVAL -DAYOFMONTH(date(finished_date))+1 DAY) as time,\n    count(distinct id) as build_count\n  FROM cicd_pipelines\n  WHERE\n    $__timeFilter(finished_date)\n    and result = 'SUCCESS'\n    and id like \"%jenkins%\"\n    and cicd_scope_id in (${job_id})\n    -- the following condition will remove the month with incomplete data\n    and finished_date >= DATE_ADD(DATE_ADD($__timeFrom(), INTERVAL -DAY($__timeFrom())+1 DAY), INTERVAL +1 MONTH)\n  GROUP BY 1\n)\n\nSELECT \n  date_format(time,'%M %Y') as month,\n  build_count as \"Build Count\"\nFROM _builds\nORDER BY time\n",
           "refId": "A",
           "select": [
             [
@@ -474,6 +643,23 @@
               }
             ]
           ],
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          },
           "table": "ae_projects",
           "timeColumn": "ae_create_time",
           "timeColumnType": "timestamp",
@@ -486,7 +672,7 @@
           ]
         }
       ],
-      "title": "1.1 Total Number of Builds [Each Month]",
+      "title": "1.1 Total Number of Successful Builds [Each Month]",
       "type": "barchart"
     },
     {
@@ -498,6 +684,8 @@
             "mode": "palette-classic"
           },
           "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
             "axisLabel": "Build Success Rate(%)",
             "axisPlacement": "auto",
             "axisSoftMin": 0,
@@ -508,7 +696,13 @@
               "tooltip": false,
               "viz": false
             },
-            "lineWidth": 1
+            "lineWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
           },
           "mappings": [],
           "thresholds": {
@@ -552,33 +746,49 @@
       },
       "id": 50,
       "interval": "",
+      "links": [
+        {
+          "targetBlank": true,
+          "title": "Build Success Rate",
+          "url": "https://devlake.apache.org/docs/Metrics/BuildSuccessRate"
+        }
+      ],
       "options": {
+        "barRadius": 0,
         "barWidth": 0.5,
+        "fullHighlight": false,
         "groupWidth": 0.7,
         "legend": {
           "calcs": [
             "mean"
           ],
           "displayMode": "list",
-          "placement": "bottom"
+          "placement": "bottom",
+          "showLegend": true
         },
         "orientation": "auto",
         "showValue": "auto",
+        "stacking": "none",
         "text": {
           "valueSize": 12
         },
         "tooltip": {
-          "mode": "single"
-        }
+          "mode": "single",
+          "sort": "none"
+        },
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
       },
       "pluginVersion": "8.0.6",
       "targets": [
         {
+          "datasource": "mysql",
+          "editorMode": "code",
           "format": "table",
           "group": [],
           "metricColumn": "none",
           "rawQuery": true,
-          "rawSql": "with _build_success_rate as(\r\n  SELECT\r\n    DATE_ADD(date(b.started_date), INTERVAL -DAYOFMONTH(date(b.started_date))+1 DAY) as time,\r\n    b.status\r\n  FROM\r\n    builds b\r\n  join jobs j on b.job_id = j.id \r\nWHERE\r\n  $__timeFilter(b.started_date)\r\n  and j.id in ($job_id)\r\n)\r\n\r\nSELECT \r\n  date_format(time,'%M %Y') as month,\r\n  1.0 * sum(case when status = 'SUCCESS' then 1 else 0 end)/ count(*) as \"Build Success Rate\"\r\nFROM _build_success_rate\r\ngroup by 1\r\norder by 1",
+          "rawSql": "WITH _build_success_rate as(\r\n  SELECT\r\n    DATE_ADD(date(finished_date), INTERVAL -DAYOFMONTH(date(finished_date))+1 DAY) as time,\r\n    result,\r\n    id\r\n  FROM\r\n    cicd_pipelines\r\n  WHERE\r\n    $__timeFilter(finished_date)\r\n    and id like \"%jenkins%\"\r\n    and cicd_scope_id in (${job_id})\r\n    -- the following condition will remove the month with incomplete data\r\n    and finished_date >= DATE_ADD(DATE_ADD($__timeFrom(), INTERVAL -DAY($__timeFrom())+1 DAY), INTERVAL +1 MONTH)\r\n  GROUP BY\r\n    time, result, id\r\n)\r\n\r\nSELECT \r\n  date_format(time,'%M %Y') as month,\r\n  1.0 * sum(case when result = 'SUCCESS' then 1 else 0 end)/ count(*) as \"Build Success Rate\"\r\nFROM _build_success_rate\r\nGROUP BY time\r\nORDER BY time",
           "refId": "A",
           "select": [
             [
@@ -590,6 +800,23 @@
               }
             ]
           ],
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          },
           "table": "ca_analysis",
           "timeColumn": "create_time",
           "timeColumnType": "timestamp",
@@ -602,8 +829,6 @@
           ]
         }
       ],
-      "timeFrom": null,
-      "timeShift": null,
       "title": "2.1 Build Success Rate [Each Month]",
       "type": "barchart"
     },
@@ -616,6 +841,8 @@
             "mode": "fixed"
           },
           "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
             "axisLabel": "Build Count",
             "axisPlacement": "auto",
             "barAlignment": 1,
@@ -698,27 +925,37 @@
         "y": 15
       },
       "id": 54,
+      "links": [
+        {
+          "targetBlank": true,
+          "title": "Build Count",
+          "url": "https://devlake.apache.org/docs/Metrics/BuildCount"
+        }
+      ],
       "options": {
         "legend": {
           "calcs": [
             "sum"
           ],
           "displayMode": "list",
-          "placement": "bottom"
+          "placement": "bottom",
+          "showLegend": true
         },
         "tooltip": {
-          "mode": "multi"
+          "mode": "multi",
+          "sort": "none"
         }
       },
       "pluginVersion": "8.0.6",
       "targets": [
         {
+          "datasource": "mysql",
           "format": "time_series",
           "group": [],
           "hide": false,
           "metricColumn": "none",
           "rawQuery": true,
-          "rawSql": "SELECT\n  DATE_ADD(date(b.started_date), INTERVAL -DAYOFMONTH(date(b.started_date))+1 DAY) as time,\n  count(distinct case when b.status = 'SUCCESS' then b.id else null end) as successful_build_count,\n  count(distinct case when b.status != 'SUCCESS' then b.id else null end) as failed_build_count\nFROM builds b\n  join jobs j on b.job_id = j.id\nWHERE\n  $__timeFilter(b.started_date)\n  and j.id in ($job_id)\ngroup by 1",
+          "rawSql": "SELECT\n  DATE_ADD(date(finished_date), INTERVAL -DAYOFMONTH(date(finished_date))+1 DAY) as time,\n  count(distinct case when result = 'SUCCESS' then id else null end) as successful_build_count,\n  count(distinct case when result != 'SUCCESS' then id else null end) as failed_build_count\nFROM cicd_pipelines\nWHERE\n  $__timeFilter(finished_date)\n  and id like \"%jenkins%\"\n  and cicd_scope_id in (${job_id})\n  -- the following condition will remove the month with incomplete data\n  and finished_date >= DATE_ADD(DATE_ADD($__timeFrom(), INTERVAL -DAY($__timeFrom())+1 DAY), INTERVAL +1 MONTH)\nGROUP BY 1",
           "refId": "A",
           "select": [
             [
@@ -754,7 +991,9 @@
             "mode": "palette-classic"
           },
           "custom": {
-            "axisLabel": "Build Count",
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "Build Duration(minutes)",
             "axisPlacement": "auto",
             "axisSoftMin": 0,
             "fillOpacity": 80,
@@ -764,7 +1003,13 @@
               "tooltip": false,
               "viz": false
             },
-            "lineWidth": 1
+            "lineWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
           },
           "mappings": [],
           "thresholds": {
@@ -785,7 +1030,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "duration_in_minute"
+              "options": "mean_duration_minutes"
             },
             "properties": [
               {
@@ -806,32 +1051,47 @@
         "y": 21
       },
       "id": 56,
+      "links": [
+        {
+          "targetBlank": true,
+          "title": "Build Duration",
+          "url": "https://devlake.apache.org/docs/Metrics/BuildDuration"
+        }
+      ],
       "options": {
+        "barRadius": 0,
         "barWidth": 0.5,
+        "fullHighlight": false,
         "groupWidth": 0.7,
         "legend": {
           "calcs": [],
           "displayMode": "list",
-          "placement": "bottom"
+          "placement": "bottom",
+          "showLegend": true
         },
         "orientation": "auto",
         "showValue": "auto",
+        "stacking": "none",
         "text": {
           "valueSize": 12
         },
         "tooltip": {
-          "mode": "single"
-        }
+          "mode": "single",
+          "sort": "none"
+        },
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
       },
       "pluginVersion": "8.0.6",
       "targets": [
         {
+          "datasource": "mysql",
           "format": "table",
           "group": [],
           "hide": false,
           "metricColumn": "none",
           "rawQuery": true,
-          "rawSql": "with _builds as(\n  SELECT\n    DATE_ADD(date(started_date), INTERVAL -DAYOFMONTH(date(started_date))+1 DAY) as time,\n    avg(duration_sec) as duration\n  FROM \n    builds b\n    join jobs j on b.job_id = j.id \nWHERE\n  $__timeFilter(b.started_date)\n  and j.id in ($job_id)\n  group by 1\n)\n\nSELECT \n  date_format(time,'%M %Y') as month,\n  duration/60 as duration_in_minute\nFROM _builds\nORDER BY time\n",
+          "rawSql": "WITH _builds as(\n  SELECT\n    DATE_ADD(date(finished_date), INTERVAL -DAYOFMONTH(date(finished_date))+1 DAY) as time,\n    avg(duration_sec) as mean_duration_sec\n  FROM \n    cicd_pipelines\n  WHERE\n    $__timeFilter(finished_date)\n    and id like \"%jenkins%\"\n    and cicd_scope_id in (${job_id})\n    -- the following condition will remove the month with incomplete data\n    and finished_date >= DATE_ADD(DATE_ADD($__timeFrom(), INTERVAL -DAY($__timeFrom())+1 DAY), INTERVAL +1 MONTH)\n  GROUP BY 1\n)\n\nSELECT \n  date_format(time,'%M %Y') as month,\n  mean_duration_sec/60 as mean_duration_minutes\nFROM _builds\nORDER BY time\n",
           "refId": "A",
           "select": [
             [
@@ -859,7 +1119,10 @@
       "type": "barchart"
     },
     {
-      "datasource": null,
+      "datasource": {
+        "type": "datasource",
+        "uid": "grafana"
+      },
       "gridPos": {
         "h": 2,
         "w": 24,
@@ -868,12 +1131,21 @@
       },
       "id": 60,
       "options": {
-        "content": "<br/>\n\nThis dashboard is created based on this [data schema](https://devlake.apache.org/docs/DataModels/DevLakeDomainLayerSchema). Want to add more metrics? Please follow the [guide](https://devlake.apache.org/docs/UserManuals/Dashboards/GrafanaUserGuide).",
+        "code": {
+          "language": "plaintext",
+          "showLineNumbers": false,
+          "showMiniMap": false
+        },
+        "content": "<br/>\n\nThis dashboard is created based on this [data schema](https://devlake.apache.org/docs/DataModels/DevLakeDomainLayerSchema). Want to add more metrics? Please follow the [guide](https://devlake.apache.org/docs/Configuration/Dashboards/GrafanaUserGuide).",
         "mode": "markdown"
       },
-      "pluginVersion": "8.0.6",
+      "pluginVersion": "9.5.15",
       "targets": [
         {
+          "datasource": {
+            "type": "datasource",
+            "uid": "grafana"
+          },
           "queryType": "randomWalk",
           "refId": "A"
         }
@@ -881,13 +1153,16 @@
       "type": "text"
     }
   ],
-  "schemaVersion": 30,
+  "refresh": "",
+  "schemaVersion": 38,
   "style": "dark",
-  "tags": [],
+  "tags": [
+    "Data Source Dashboard",
+    "Stable Data Sources"
+  ],
   "templating": {
     "list": [
       {
-        "allValue": null,
         "current": {
           "selected": true,
           "text": [
@@ -898,16 +1173,14 @@
           ]
         },
         "datasource": "mysql",
-        "definition": "select concat(name, '--', id) as text from jobs ",
-        "description": null,
-        "error": null,
+        "definition": "select concat(name, '--', id) as text from cicd_scopes where id like \"jenkins%\" ",
         "hide": 0,
         "includeAll": true,
         "label": "Job Name",
         "multi": true,
         "name": "job_id",
         "options": [],
-        "query": "select concat(name, '--', id) as text from jobs ",
+        "query": "select concat(name, '--', id) as text from cicd_scopes where id like \"jenkins%\" ",
         "refresh": 1,
         "regex": "/^(?<text>.*)--(?<value>.*)$/",
         "skipUrlSync": false,
@@ -921,8 +1194,9 @@
     "to": "now"
   },
   "timepicker": {},
-  "timezone": "",
+  "timezone": "utc",
   "title": "Jenkins",
   "uid": "W8AiDFQnk",
-  "version": 3
+  "version": 2,
+  "weekStart": ""
 }

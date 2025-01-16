@@ -18,10 +18,15 @@
 name: unit-test
 
 on:
+  push:
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main, release-*]
     paths:
       - '**.go'
+      - '**.py'
+      - '**.toml'
+      - '**.sh'
       - 'Makefile'
       - 'go.mod'
       - 'go.sum'
@@ -40,20 +45,26 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v3
-    - name: Setup Golang env
-      uses: actions/setup-go@v3
-      with:
-        go-version: ${{ matrix.go }}
+    - name: Set git config
+      run: git config --global --add safe.directory $(pwd)
+    - name: Build Python
+      run: |
+        cd backend
+        echo "Building Python"
+        make build-python
     - name: Cache unit-test
       id: cache-unit-test
       uses: actions/cache@v3
       with:
         path: |
           ~/.cache/go-build
-          ~/go/pkg/mod
+          ${{ env.GOPATH }}/pkg/mod
         key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
         restore-keys: |
           ${{ runner.os }}-go-
     - name: Unit tests
       run: |
+        go version
+        cp env.example .env
+        cd backend
         make unit-test
